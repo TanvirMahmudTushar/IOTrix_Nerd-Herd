@@ -48,6 +48,11 @@ export default function SignupPage() {
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('role', data.role)
       localStorage.setItem('user_id', data.user_id)
+      
+      // Store puller_id for puller accounts (MVP fix)
+      if (data.puller_id) {
+        localStorage.setItem('puller_id', data.puller_id)
+      }
 
       if (data.role === 'admin') {
         router.push('/admin')

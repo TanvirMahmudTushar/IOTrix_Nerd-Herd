@@ -22,8 +22,15 @@ export default function PullerPage() {
       return
     }
 
-    const userId = localStorage.getItem('user_id')
-    setPullerId(`puller_${userId?.split('_')[1] || ''}`)
+    // Get puller_id from localStorage (stored during login/signup)
+    const storedPullerId = localStorage.getItem('puller_id')
+    if (storedPullerId) {
+      setPullerId(storedPullerId)
+    } else {
+      // Fallback: derive from user_id for backwards compatibility
+      const userId = localStorage.getItem('user_id')
+      setPullerId(`puller_${userId?.split('_')[1] || ''}`)
+    }
     setLoading(false)
   }, [router])
 

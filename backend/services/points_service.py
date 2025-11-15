@@ -1,27 +1,21 @@
-from models.db_models import Ride, Location
+from models.db_models import Ride, Location, RideStatus
 from sqlalchemy.orm import Session
 from utils.gps_utils import haversine_distance
 
-def calculate_points(ride: Ride, db: Session) -> int:
-    """Calculate points based on distance from pickup block"""
+def calculate_points(dropoff_lat: float, dropoff_lng: float, destination_lat: float, destination_lng: float) -> tuple[int, bool]:
+    """
+    Calculate points based on dropoff accuracy (MVP tier-based formula)
     
-    pickup_loc = db.query(Location).filter(Location.name == ride.pickup).first()
-    destination_loc = db.query(Location).filter(Location.name == ride.destination).first()
+    Returns: (points, needs_review)
+    """
+    distance_error = haversine_distance(dropoff_lat, dropoff_lng, destination_lat, destination_lng)
     
-    if not pickup_loc or not destination_loc:
-        return 0
-    
-    # Calculate distance
-    distance = haversine_distance(
-        pickup_loc.lat, pickup_loc.lng,
-        destination_loc.lat, destination_loc.lng
-    )
-    
-    # Points formula: 10 - (distance / 10)
-    points = max(0, int(10 - (distance / 10)))
-    
-    # If distance > 100m, needs admin review
-    if distance > 100:
-        ride.status = "pending_review"
-    
-    return points
+    # Tier-based point allocation (MVP requirements)
+    if distance_error == 0:
+        return 10, False
+    elif distance_error <= 50:
+        return 8, False
+    elif distance_error <= 100:
+        return 5, False
+    else:
+        return 0, True  # Needs admin review

@@ -52,9 +52,17 @@ def signup(request: SignUpRequest, db: Session = Depends(get_db)):
     db.commit()
     
     # If puller, create puller record
+    # MVP: Use same ID for simplicity (puller_id matches user_id pattern)
+    puller_id = None
     if request.role == UserRole.PULLER:
-        puller_id = f"puller_{uuid.uuid4().hex[:8]}"
-        puller = Puller(puller_id=puller_id, user_id=user_id)
+        # Derive puller_id from user_id for consistent frontend lookup
+        puller_id = f"puller_{user_id.split('_')[1]}"
+        puller = Puller(
+            puller_id=puller_id, 
+            user_id=user_id,
+            name=request.name,
+            phone=request.phone
+        )
         db.add(puller)
         db.commit()
     
@@ -64,7 +72,8 @@ def signup(request: SignUpRequest, db: Session = Depends(get_db)):
         "access_token": token,
         "token_type": "bearer",
         "role": request.role.value,
-        "user_id": user_id
+        "user_id": user_id,
+        "puller_id": puller_id  # Return puller_id for frontend
     }
 
 @router.post("/login", response_model=TokenResponse)
@@ -74,11 +83,22 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(request.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    # Get puller_id if user is a puller
+    puller_id = None
+    if user.role == UserRole.PULLER:
+        puller = db.query(Puller).filter(Puller.user_id == user.user_id).first()
+        if puller:
+            puller_id = puller.puller_id
+        else:
+            # Fallback: derive from user_id (for consistency with signup)
+            puller_id = f"puller_{user.user_id.split('_')[1]}"
+    
     token = create_access_token({"user_id": user.user_id, "email": user.email, "role": user.role.value})
     
     return {
         "access_token": token,
         "token_type": "bearer",
         "role": user.role.value,
-        "user_id": user.user_id
+        "user_id": user.user_id,
+        "puller_id": puller_id
     }
